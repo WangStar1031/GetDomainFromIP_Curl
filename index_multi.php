@@ -1,5 +1,5 @@
 <?php
-	set_time_limit(600);
+	set_time_limit(-1);
 	require_once("simple_html_dom.php");
 
 	function __call_safe_url__($__url) {
@@ -96,36 +96,57 @@
 	for( $i = 0; $i < count($arrIps); $i ++){
 		array_push($urls, "https://www.bing.com/search?q=ip:".$arrIps[$i]);
 	}
-	echo "string<br/>";
-	$results = _multiRequest($urls);
-	echo "string<br/>";
-	echo count($results) . "<br/>";
+	echo "Start request.<br/>";
+	$curPos = 0;
+	// $pageIndex = 0;
 
-	$rst = [];
-	for( $i = 0; $i < count($results); $i ++){
-		$result = $results[$i];
-		if(!$result)continue;
-		$html = str_get_html($result);
-		$records = $html->find("#b_results a");
-		foreach ($records as $record) {
-			$href_val = $record->href;
-			if(strpos($href_val, "http") === false) continue;
-			if(strpos($href_val, "microsofttranslator.com") !== false) continue;
-			$href_val = str_replace("https://", "", $href_val);
-			$href_val = str_replace("http://", "", $href_val);
-			if(strpos($href_val, "/") !== false) {
-				$href_val = substr($href_val, 0, strpos($href_val, "/"));
-			}
-			if(in_array($href_val, $rst)) continue;
-			$rst[] = $href_val;
-		}
-	}
-	print_r($rst);
-	// exit();
 	$fileContents = '';
-	for( $i = 0; $i < count($rst); $i++){
-		$fileContents .= $rst[$i] . '
-';
+	while( $curPos < count($urls)){
+		$arrCurUrls = array();
+		for( $i = 0; $i < 100; $i++){
+			$arrCurUrls[$i] = $urls[$curPos];
+			$curPos ++;
+			if( $curPos >= count($urls)){
+				break;
+			}
+		}
+		$results = _multiRequest($arrCurUrls);
+		$rst = [];
+		for( $i = 0; $i < count($results); $i ++){
+			$result = $results[$i];
+			if(!$result)continue;
+			$html = str_get_html($result);
+			$records = $html->find("#b_results a");
+			foreach ($records as $record) {
+				$href_val = $record->href;
+				if(strpos($href_val, "http") === false) continue;
+				if(strpos($href_val, "microsofttranslator.com") !== false) continue;
+				$href_val = str_replace("https://", "", $href_val);
+				$href_val = str_replace("http://", "", $href_val);
+				if(strpos($href_val, "/") !== false) {
+					$href_val = substr($href_val, 0, strpos($href_val, "/"));
+				}
+				if(in_array($href_val, $rst)) continue;
+				if (filter_var($href_val, FILTER_VALIDATE_IP)) continue;
+				$rst[] = $href_val;
+				echo $href_val . '<br/>';
+			}
+		}
+		$domainContents = @file_get_contents('result.txt');
+		$arrDomains = explode(PHP_EOL, $domainContents);
+		for( $i = 0; $i < count($rst); $i++){
+			if( in_array($rst[$i], $arrDomains)) continue;
+			file_put_contents('result.txt', $rst[$i] . PHP_EOL , FILE_APPEND | LOCK_EX);
+// 			$fileContents .= $rst[$i] . '
+// ';
+		}
+		// $pageIndex++;
+		// if( $pageIndex == 2){
+		// 	file_put_contents('result.txt', $fileContents);
+		// }
 	}
-	file_put_contents('result.txt', $fileContents);
+	
+	echo "End request.<br/>";
+
+	// file_put_contents('result.txt', $fileContents);
 ?>
